@@ -1,32 +1,4 @@
-"""
-ai_ml/training/train.py — Training loop for the Custom Scientific Transformer.
-
-Features:
-  - AdamW optimizer
-  - Linear warmup + cosine decay learning rate schedule
-  - Train/validation loss logging
-  - Checkpoint saving (best model + periodic)
-  - Reproducibility via random seed
-  - GPU/CPU support
-  - Configurable via config.py and CLI arguments
-
-Person 2 (AI/ML Developer) owns this file.
-
-TODO (Person 2):
-  - Add gradient clipping
-  - Add mixed-precision training (torch.cuda.amp) for GPU speedup
-  - Add TensorBoard / WandB logging
-  - Add early stopping
-  - Tune learning rate schedule and warmup steps
-
-Usage:
-  python -m ai_ml.training.train \
-    --train data/training/processed/train.jsonl \
-    --val   data/training/processed/val.jsonl
-"""
-
 from __future__ import annotations
-
 import argparse
 import math
 import random
