@@ -1,0 +1,14 @@
+data/papers/
+data/training/raw/
+data/training/processed/
+data/faiss_index/
+
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.pyd
