@@ -12,3 +12,5 @@ dist/
 build/
 .eggs/
 *.pyd       
+data/
+node_modules/
