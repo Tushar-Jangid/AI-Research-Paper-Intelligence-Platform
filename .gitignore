@@ -4,13 +4,9 @@ data/training/processed/
 data/faiss_index/
 data\training\raw\arXiv_scientific_dataset.csv
 __pycache__/
-*.py[cod]
-*.so
-*.egg
-*.egg-info/
-dist/
-build/
-.eggs/
-*.pyd       
 data/
 node_modules/
+
+__pycache__/
+backend/__pycache__/
+routes/__pycache__/
