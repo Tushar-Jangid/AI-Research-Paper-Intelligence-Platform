@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from loguru import logger
 
@@ -49,8 +49,18 @@ _REF_LINE_RE = re.compile(
 )
 
 _AUTHOR_RE = re.compile(r"[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+")
+_YEAR_RE = re.compile(r"\b(?:19|20)\d{2}\b")
 
-_YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
+NOISE_TITLE_PATTERNS = [
+    r"(?i)open\s+access", r"(?i)creative\s+commons", r"(?i)license",
+    r"(?i)international\s+journal", r"(?i)discover\s+computing",
+    r"(?i)doi:", r"(?i)http[s]?://", r"(?i)issn", r"(?i)volume\s+\d",
+    r"(?i)all\s+rights\s+reserved", r"(?i)peer-reviewed", r"(?i)refereed",
+    r"(?i)copyright", r"(?i)^research$", r"(?i)article\s+history",
+    r"(?i)published:", r"(?i)correspondence:", r"(?i)page\s+\d+\s+of\s+\d+",
+    r"(?i)ieee\s+transactions", r"(?i)acm\s+transactions", r"(?i)arxiv:",
+    r"(?i)original\s+article", r"(?i)review\s+article"
+]
 
 
 class PDFParser:
@@ -70,17 +80,17 @@ class PDFParser:
 
         full_text = "\n".join(pages_text)
         num_pages = len(doc)
-        doc.close()
-        title    = self._extract_title(pages_text)
-        authors  = self._extract_authors(pages_text)
+        title    = self._extract_title(doc, pages_text)
+        authors  = self._extract_authors(doc, pages_text, title)
         abstract = self._extract_abstract(full_text)
-        year     = self._extract_year(full_text[:500])
+        year     = self._extract_year(full_text[:1200])
         keywords = self._extract_keywords(full_text)
         sections = self._detect_sections(full_text)
         references = self._extract_references(full_text)
+        doc.close()
 
         logger.info(
-            f"   Parsed: {num_pages} pages | {len(sections)} sections | "
+            f"   Parsed: '{title}' ({year}) by {authors} | {num_pages} pages | {len(sections)} sections | "
             f"{len(references)} references"
         )
 
@@ -89,58 +99,123 @@ class PDFParser:
             "authors":    authors,
             "abstract":   abstract,
             "year":       year,
-            "venue":      None, 
+            "venue":      None,
             "keywords":   keywords,
             "sections":   sections,
             "references": references,
             "full_text":  full_text,
             "num_pages":  num_pages,
         }
-    @staticmethod
-    def _extract_title(pages_text: List[str]) -> str:
 
+    @staticmethod
+    def _is_noise(txt: str) -> bool:
+        return any(re.search(p, txt) for p in NOISE_TITLE_PATTERNS)
+
+    @classmethod
+    def _extract_title(cls, doc: Any, pages_text: List[str]) -> str:
+        # 1. First attempt: font-size inspection from PyMuPDF
+        try:
+            p0 = doc[0]
+            d = p0.get_text("dict")
+            spans = []
+            for b in d.get("blocks", []):
+                if "lines" in b:
+                    for l in b["lines"]:
+                        for s in l.get("spans", []):
+                            txt = s.get("text", "").strip()
+                            if txt and len(txt) > 2 and not cls._is_noise(txt):
+                                spans.append((s.get("size", 10), txt))
+
+            if spans:
+                spans.sort(key=lambda x: -x[0])
+                max_size = spans[0][0]
+                title_parts = [
+                    s[1] for s in spans
+                    if abs(s[0] - max_size) < 1.2 and not cls._is_noise(s[1])
+                ]
+                candidate = " ".join(title_parts).strip()
+                if len(candidate) > 15:
+                    return candidate
+        except Exception as exc:
+            logger.debug(f"Font size title extraction failed: {exc}")
+
+        # 2. Fallback: text lines before abstract
         first_page = pages_text[0] if pages_text else ""
         lines = [l.strip() for l in first_page.split("\n") if l.strip()]
 
-        # Title is typically the first line that's longer than 10 chars
-        for line in lines[:10]:
-            if len(line) > 10 and not line.lower().startswith("abstract"):
+        for line in lines[:15]:
+            if len(line) > 15 and not cls._is_noise(line) and not line.lower().startswith("abstract"):
                 return line
 
         return "Unknown Title"
 
-    @staticmethod
-    def _extract_authors(pages_text: List[str]) -> List[str]:
+    @classmethod
+    def _extract_authors(cls, doc: Any, pages_text: List[str], title: str) -> List[str]:
         first_page = pages_text[0] if pages_text else ""
         lines = [l.strip() for l in first_page.split("\n") if l.strip()]
 
+        title_words = set(re.findall(r"\w+", title.lower()))
+        title_idx = -1
+        for i, l in enumerate(lines[:25]):
+            line_words = set(re.findall(r"\w+", l.lower()))
+            if len(title_words.intersection(line_words)) >= 2:
+                title_idx = i
+
         authors = []
-        for line in lines[1:15]: 
-            if "abstract" in line.lower():
-                break
-            matches = _AUTHOR_RE.findall(line)
-            authors.extend(matches)
+        author_blacklist = {
+            "abstract", "introduction", "keywords", "assistant professor", "professor",
+            "department", "university", "school", "student", "college", "institute",
+            "article info", "peer-reviewed", "open access", "research gap detection"
+        }
 
-        seen = set()
-        unique_authors = []
-        for a in authors:
-            if a not in seen and len(a) > 3:
-                seen.add(a)
-                unique_authors.append(a)
+        search_range = lines[title_idx + 1: title_idx + 6] if title_idx >= 0 else lines[1:12]
+        for l in search_range:
+            l_lower = l.lower()
+            if any(term in l_lower for term in author_blacklist):
+                continue
+            cleaned = re.sub(r"[\d\*†‡§]+", "", l)
+            cleaned = re.sub(r"\band\b", ",", cleaned)
+            for part in cleaned.split(","):
+                part = part.strip()
+                if 2 <= len(part.split()) <= 4 and re.match(r"^[A-Z][a-zA-Z\s\.\-]+$", part):
+                    if part not in authors:
+                        authors.append(part)
 
-        return unique_authors[:10] 
+        if not authors:
+            # Fallback regex
+            for line in lines[1:15]:
+                if "abstract" in line.lower():
+                    break
+                matches = _AUTHOR_RE.findall(line)
+                for m in matches:
+                    if not any(b in m.lower() for b in author_blacklist) and m not in authors:
+                        authors.append(m)
+
+        return authors[:8]
 
     @staticmethod
     def _extract_abstract(full_text: str) -> str:
         match = re.search(
-            r"abstract\s*\n(.*?)(?=\n\s*(?:introduction|keywords|1\.|I\.))",
+            r"abstract\s*[:\n](.*?)(?=\n\s*(?:introduction|keywords|1\.|I\.|\d+\s+introduction))",
             full_text,
             re.IGNORECASE | re.DOTALL,
         )
         if match:
-            abstract = match.group(1).strip()
-            abstract = re.sub(r"\s+", " ", abstract)
-            return abstract[:2000] 
+            raw = match.group(1).strip()
+            clean_lines = []
+            for line in raw.split("\n"):
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                if any(re.search(p, stripped) for p in NOISE_TITLE_PATTERNS):
+                    continue
+                if re.match(r"^(?:Article\s+Info|September-\d+|Page\s+Number|Corresponding\s+Author)", stripped, re.I):
+                    continue
+                clean_lines.append(stripped)
+            clean_text = " ".join(clean_lines)
+            clean_text = re.sub(r"\s+", " ", clean_text).strip()
+            return clean_text[:2000]
+
         idx = full_text.lower().find("abstract")
         if idx >= 0:
             return full_text[idx + 8 : idx + 1008].strip()
@@ -161,7 +236,6 @@ class PDFParser:
         )
         if match:
             raw = match.group(1)
-            # Split by comma, semicolon, or bullet
             keywords = [k.strip() for k in re.split(r"[,;•·]", raw) if k.strip()]
             return keywords[:15]
         return []
