@@ -6,10 +6,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/papers': 'http://localhost:8000',
-      '/search': 'http://localhost:8000',
-      '/comparison': 'http://localhost:8000',
-      '/literature-review': 'http://localhost:8000',
-    }
-  }
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
 })
