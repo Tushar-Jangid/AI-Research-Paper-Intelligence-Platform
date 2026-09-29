@@ -6,7 +6,6 @@ import React, { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { papersApi } from '../services/api.js'
 import toast from 'react-hot-toast'
-import { IconUpload, IconSparkles, IconCheck } from './Icons.jsx'
 
 export default function PaperUpload({ onUploadSuccess }) {
   const [uploading, setUploading] = useState(false)
@@ -21,10 +20,10 @@ export default function PaperUpload({ onUploadSuccess }) {
 
     for (const file of pdfFiles) {
       setUploading(true)
-      setProgress(`Extracting sections & indexing "${file.name}"…`)
+      setProgress(`Uploading "${file.name}"…`)
       try {
         const result = await papersApi.upload(file)
-        toast.success(`"${result.title || file.name}" indexed successfully!`)
+        toast.success(`"${result.title}" uploaded successfully!`)
         onUploadSuccess?.(result)
       } catch (err) {
         toast.error(`Upload failed: ${err.message}`)
@@ -46,81 +45,45 @@ export default function PaperUpload({ onUploadSuccess }) {
       {...getRootProps()}
       id="paper-upload-dropzone"
       style={{
-        border: `2px dashed ${isDragActive ? 'var(--accent-bright)' : 'var(--border-strong)'}`,
-        borderRadius: 'var(--radius-xl)',
+        border: `2px dashed ${isDragActive ? 'var(--accent-primary)' : 'var(--border-default)'}`,
+        borderRadius: 'var(--radius-lg)',
         padding: '3rem 2rem',
         textAlign: 'center',
         cursor: uploading ? 'not-allowed' : 'pointer',
-        background: isDragActive ? 'var(--accent-glow-subtle)' : 'var(--bg-card)',
+        background: isDragActive
+          ? 'rgba(59, 130, 246, 0.06)'
+          : 'var(--bg-card)',
         transition: 'all var(--transition-base)',
-        boxShadow: isDragActive ? 'var(--shadow-glow)' : 'var(--shadow-md)',
-        position: 'relative',
-        overflow: 'hidden',
+        boxShadow: isDragActive ? 'var(--shadow-glow)' : 'none',
       }}
     >
       <input {...getInputProps()} disabled={uploading} />
 
       {uploading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.25rem' }}>
-          <div className="spinner" style={{ width: 44, height: 44, borderWidth: 4 }} />
-          <div>
-            <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.05rem', marginBottom: '0.25rem' }}>
-              Analyzing Research Paper
-            </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>{progress}</p>
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+          <div className="spinner" />
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{progress}</p>
         </div>
       ) : (
         <>
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: '50%',
-              background: 'var(--accent-glow-subtle)',
-              border: '1px solid var(--border-default)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 1.25rem',
-              color: 'var(--accent-bright)',
-              transition: 'transform var(--transition-base)',
-              transform: isDragActive ? 'scale(1.15)' : 'scale(1)',
-            }}
-          >
-            <IconUpload size={30} />
+          <div style={{
+            fontSize: '2.5rem', marginBottom: '1rem',
+            filter: isDragActive ? 'none' : 'grayscale(0.3)',
+          }}>
+            {isDragActive ? '📂' : '📄'}
           </div>
-
-          <h3 style={{ marginBottom: '0.4rem', color: 'var(--text-primary)', fontSize: '1.25rem', fontWeight: 700 }}>
-            {isDragActive ? 'Drop your PDF papers here' : 'Upload Research Papers'}
+          <h3 style={{ marginBottom: '0.5rem', color: 'var(--text-primary)' }}>
+            {isDragActive ? 'Drop your papers here' : 'Upload Research Papers'}
           </h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginBottom: '1.5rem', maxWidth: 440, margin: '0 auto 1.5rem' }}>
-            Drag &amp; drop PDF files to extract sections, generate vector embeddings, and enable deep semantic search.
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+            Drag &amp; drop PDF files, or click to browse
           </p>
-
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <span className="btn btn-primary">
-              <IconUpload size={16} /> Select PDF Document
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '0.85rem', marginTop: '1.75rem', flexWrap: 'wrap' }}>
-            {['Format: PDF', 'Sections Auto-Extracted', 'SBERT Vectorized', 'Grounded Summaries'].map(badge => (
-              <span
-                key={badge}
-                style={{
-                  fontSize: '0.72rem',
-                  color: 'var(--text-muted)',
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border-subtle)',
-                  padding: '0.25rem 0.65rem',
-                  borderRadius: 'var(--radius-pill)',
-                }}
-              >
-                ✓ {badge}
-              </span>
-            ))}
-          </div>
+          <span className="btn btn-primary">
+            📎 Browse PDFs
+          </span>
+          <p style={{ marginTop: '1rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            Supported format: PDF · Multiple files allowed
+          </p>
         </>
       )}
     </div>
