@@ -8,12 +8,6 @@ import { papersApi, comparisonApi } from '../services/api.js'
 import PaperCard from '../components/PaperCard.jsx'
 import ComparisonTable from '../components/ComparisonTable.jsx'
 import toast from 'react-hot-toast'
-import {
-  IconCompare,
-  IconPapers,
-  IconCheck,
-  IconSparkles,
-} from '../components/Icons.jsx'
 
 export default function Comparison() {
   const location = useLocation()
@@ -33,7 +27,7 @@ export default function Comparison() {
       })
       .catch(() => setPapers([]))
       .finally(() => setLP(false))
-  }, [location.state?.preselected])
+  }, [])
 
   const toggleSelect = (paper) => {
     setSelected(prev => {
@@ -44,26 +38,12 @@ export default function Comparison() {
     setComparison(null)
   }
 
-  const selectAll = () => {
-    setSelected(new Set(papers.map(p => p.paper_id)))
-    setComparison(null)
-  }
-
-  const clearAll = () => {
-    setSelected(new Set())
-    setComparison(null)
-  }
-
   const handleCompare = async () => {
-    if (selected.size < 2) {
-      toast.error('Select at least 2 papers to compare.')
-      return
-    }
+    if (selected.size < 2) { toast.error('Select at least 2 papers to compare.'); return }
     setLoading(true)
     try {
       const data = await comparisonApi.compare([...selected])
       setComparison(data)
-      toast.success('Comparative matrix generated!')
     } catch (err) {
       toast.error(err.message)
     } finally {
@@ -73,87 +53,43 @@ export default function Comparison() {
 
   return (
     <div className="page-container">
-      {/* Header */}
       <div style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
-          <span className="badge badge-purple">
-            <IconCompare size={12} /> Comparative Analysis
-          </span>
-        </div>
-        <h1 style={{ marginBottom: '0.4rem' }}>Side-by-Side Paper Comparison</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>
-          Evaluate architectures, datasets, evaluation metrics, and empirical findings side-by-side.
-        </p>
+        <h1 style={{ marginBottom: '0.4rem' }}>Compare Papers</h1>
+        <p>Select 2 or more papers to compare side-by-side across methodology, datasets, results, and more.</p>
       </div>
 
-      {/* Paper selection area */}
-      <div className="glass-card" style={{ padding: '2rem', marginBottom: '2.5rem' }}>
+      {/* Paper selection */}
+      <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
         <div className="section-header">
-          <div className="section-title">
-            <div className="icon-box">
-              <IconPapers size={18} />
-            </div>
-            Select Papers to Compare
-            <span
-              style={{
-                fontSize: '0.78rem',
-                padding: '0.2rem 0.65rem',
-                borderRadius: 'var(--radius-pill)',
-                background: selected.size >= 2 ? 'var(--accent-glow-subtle)' : 'var(--bg-elevated)',
-                color: selected.size >= 2 ? 'var(--accent-bright)' : 'var(--text-muted)',
-                border: '1px solid var(--border-default)',
-              }}
-            >
-              {selected.size} selected (min 2)
+          <h3 className="section-title"><span className="icon">📄</span> Select Papers</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              {selected.size} selected
             </span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
-            {papers.length > 0 && (
-              <>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={selectAll}>
-                  Select All
-                </button>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={clearAll}>
-                  Clear
-                </button>
-              </>
-            )}
-
             <button
               id="compare-btn"
-              type="button"
               className="btn btn-primary"
               disabled={selected.size < 2 || loading}
               onClick={handleCompare}
             >
-              {loading ? (
-                <>
-                  <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-                  Synthesizing Comparison…
-                </>
-              ) : (
-                <>
-                  <IconCompare size={16} /> Compare {selected.size} Papers
-                </>
-              )}
+              {loading
+                ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> Comparing…</>
+                : `⚖️ Compare ${selected.size} Papers`}
             </button>
           </div>
         </div>
 
         {loadingPapers ? (
           <div className="grid-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="skeleton" style={{ height: 170, borderRadius: 'var(--radius-lg)' }} />
+            {[1,2,3].map(i => (
+              <div key={i} className="skeleton" style={{ height: 160, borderRadius: 'var(--radius-lg)' }} />
             ))}
           </div>
         ) : papers.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">
-              <IconPapers size={32} />
-            </div>
-            <h3>No research papers available</h3>
-            <p>Upload at least 2 PDF papers to create side-by-side comparison tables.</p>
+            <div className="empty-state-icon">📭</div>
+            <h3>No papers available</h3>
+            <p>Upload at least 2 papers to compare them.</p>
           </div>
         ) : (
           <div className="grid-3">
@@ -172,17 +108,43 @@ export default function Comparison() {
 
       {/* Comparison results */}
       {comparison && (
-        <div style={{ animation: 'fadeInUp 0.3s ease' }}>
-          <div className="section-header">
-            <div className="section-title">
-              <div className="icon-box">
-                <IconSparkles size={18} />
-              </div>
-              Comparison Matrix
-            </div>
-          </div>
+        <div style={{ animation: 'fadeInUp 0.4s ease' }}>
+          <h3 style={{ marginBottom: '1.25rem' }}>📊 Comparison Results</h3>
+          <ComparisonTable comparison={comparison.comparison} />
 
-          <ComparisonTable comparison={comparison.papers || comparison} />
+          {/* Trends */}
+          {comparison.research_trends?.length > 0 && (
+            <div className="glass-card" style={{ padding: '1.5rem', marginTop: '1.5rem' }}>
+              <h4 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                📈 Research Trends
+                <span className="badge badge-amber" style={{ fontWeight: 500, fontSize: '0.7rem' }}>
+                  Observations from selected papers only
+                </span>
+              </h4>
+              <ul style={{ paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {comparison.research_trends.map((t, i) => (
+                  <li key={i} style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{t}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Gaps */}
+          {comparison.potential_gaps?.length > 0 && (
+            <div className="glass-card" style={{ padding: '1.5rem', marginTop: '1rem', borderColor: 'rgba(245,158,11,0.2)' }}>
+              <h4 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                🔭 Potential Research Gaps
+                <span className="badge badge-amber" style={{ fontWeight: 500, fontSize: '0.7rem' }}>
+                  ⚠️ Requires researcher verification
+                </span>
+              </h4>
+              <ul style={{ paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {comparison.potential_gaps.map((g, i) => (
+                  <li key={i} style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{g}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>
