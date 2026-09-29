@@ -1,52 +1,38 @@
 /**
  * pages/Search.jsx — Semantic search page.
- * Searches across paper embeddings by conceptual meaning.
+ *
+ * Searches by MEANING, not keywords.
+ * Results show paper, section, chunk text, and similarity score.
  */
 
-import React, { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { searchApi } from '../services/api.js'
 import SearchBar from '../components/SearchBar.jsx'
-import toast from 'react-hot-toast'
-import {
-  IconSearch,
-  IconPapers,
-  IconSparkles,
-  IconCopy,
-  IconCheck,
-  IconArrowRight,
-} from '../components/Icons.jsx'
 
 const EXAMPLE_QUERIES = [
   'Transformer models for medical image classification',
   'Self-supervised learning for NLP pretraining',
   'Attention mechanism in neural networks',
   'Graph neural networks for knowledge representation',
-  'Diffusion models for image synthesis',
+  'Diffusion models for image generation',
 ]
 
-function ScoreBadge({ score }) {
+function ScoreBar({ score }) {
   const pct = Math.round(score * 100)
-  const isHigh = score > 0.8
-  const isMed = score > 0.6
-  const color = isHigh ? 'var(--accent-green)' : isMed ? 'var(--accent-amber)' : 'var(--accent-bright)'
-  const badgeClass = isHigh ? 'badge-green' : isMed ? 'badge-amber' : 'badge-blue'
-
+  const color = score > 0.8 ? 'var(--accent-green)' : score > 0.6 ? 'var(--accent-amber)' : 'var(--text-secondary)'
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-      <div style={{ width: 80, height: 6, background: 'var(--bg-elevated)', borderRadius: 100, overflow: 'hidden' }}>
-        <div
-          style={{
-            height: '100%',
-            width: `${Math.min(100, pct)}%`,
-            background: color,
-            borderRadius: 100,
-            transition: 'width 0.8s ease',
-          }}
-        />
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div style={{ flex: 1, height: 5, background: 'var(--bg-elevated)', borderRadius: 100, overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', width: `${pct}%`,
+          background: color,
+          borderRadius: 100,
+          transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)',
+        }} />
       </div>
-      <span className={`badge ${badgeClass}`} style={{ fontSize: '0.72rem' }}>
-        {pct}% Match
+      <span style={{ fontWeight: 700, fontSize: '0.85rem', color, minWidth: 40 }}>
+        {pct}%
       </span>
     </div>
   )
@@ -54,12 +40,10 @@ function ScoreBadge({ score }) {
 
 export default function Search() {
   const navigate = useNavigate()
-  const location = useLocation()
   const [results, setResults]     = useState(null)
   const [loading, setLoading]     = useState(false)
   const [lastQuery, setLastQuery] = useState('')
   const [topK, setTopK]           = useState(10)
-  const [copiedId, setCopiedId]   = useState(null)
 
   const handleSearch = async (query) => {
     setLoading(true)
@@ -74,75 +58,48 @@ export default function Search() {
     }
   }
 
-  // Handle incoming query from location state (e.g. from Hero or Command Palette)
-  useEffect(() => {
-    if (location.state?.autoQuery) {
-      handleSearch(location.state.autoQuery)
-    }
-  }, [location.state?.autoQuery])
-
-  const handleCopyExcerpt = (text, id) => {
-    navigator.clipboard.writeText(text)
-    setCopiedId(id)
-    toast.success('Excerpt copied to clipboard!')
-    setTimeout(() => setCopiedId(null), 2000)
-  }
-
   return (
     <div className="page-container">
       {/* Header */}
       <div style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
-          <span className="badge badge-blue">
-            <IconSparkles size={12} /> Semantic Search Engine
-          </span>
-        </div>
-        <h1 style={{ marginBottom: '0.4rem' }}>Semantic Literature Search</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>
-          Search across indexed papers by <strong style={{ color: 'var(--accent-bright)' }}>meaning and concept</strong>, not literal keywords.
+        <h1 style={{ marginBottom: '0.4rem' }}>Semantic Search</h1>
+        <p>
+          Search across all uploaded papers by <strong style={{ color: 'var(--accent-bright)' }}>meaning</strong>, not just keywords.
+          Results are ranked by semantic similarity.
         </p>
       </div>
 
-      {/* Search Input Card */}
-      <div className="glass-card" style={{ padding: '2.25rem', marginBottom: '2.5rem' }}>
-        <SearchBar
-          onSearch={handleSearch}
-          loading={loading}
-          initialValue={location.state?.autoQuery || ''}
-        />
+      {/* Search form */}
+      <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem' }}>
+        <SearchBar onSearch={handleSearch} loading={loading} />
 
-        {/* Top-K filter pills */}
-        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Retrieve Depth:</span>
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Results:</span>
           {[5, 10, 20].map(k => (
             <button
               key={k}
               id={`top-k-${k}`}
-              type="button"
               className={`btn btn-sm ${topK === k ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setTopK(k)}
-              style={{ borderRadius: 'var(--radius-pill)', padding: '0.3rem 0.85rem' }}
             >
-              Top {k} Chunks
+              Top {k}
             </button>
           ))}
         </div>
 
-        {/* Example prompts */}
+        {/* Example queries */}
         {!results && (
-          <div style={{ marginTop: '1.75rem' }}>
-            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
-              Suggested research queries:
+          <div style={{ marginTop: '1.5rem' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+              Try these examples:
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               {EXAMPLE_QUERIES.map(q => (
                 <button
                   key={q}
-                  type="button"
                   className="chip"
                   onClick={() => handleSearch(q)}
                 >
-                  <IconSearch size={13} color="var(--accent-bright)" />
                   {q}
                 </button>
               ))}
@@ -151,128 +108,89 @@ export default function Search() {
         )}
       </div>
 
-      {/* Loading state */}
+      {/* Results */}
       {loading && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 2rem', gap: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
           <div className="spinner" style={{ width: 48, height: 48, borderWidth: 4 }} />
-          <div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Computing cosine similarity over FAISS vectors…</div>
         </div>
       )}
 
-      {/* Results View */}
       {results && !loading && (
         <div style={{ animation: 'fadeInUp 0.3s ease' }}>
           <div className="section-header">
             <div className="section-title">
-              <div className="icon-box">
-                <IconSearch size={18} />
-              </div>
-              Results for: &ldquo;<span style={{ color: 'var(--accent-bright)' }}>{lastQuery}</span>&rdquo;
+              <span className="icon">🔍</span>
+              Results for: &ldquo;{lastQuery}&rdquo;
             </div>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              {results.results?.length || 0} semantic matches found
+              {results.total_results} results found
             </span>
           </div>
 
-          {results.results?.length === 0 ? (
+          {results.results.length === 0 ? (
             <div className="glass-card empty-state">
-              <div className="empty-state-icon">
-                <IconSearch size={32} />
-              </div>
-              <h3>No matching conceptual chunks found</h3>
+              <div className="empty-state-icon">🔭</div>
+              <h3>No results found</h3>
               <p>
-                Try broader academic phrases or upload additional related papers.
-                {results.error && <> ({results.error})</>}
+                Upload more papers or try a different query.
+                {results.error && <> Error: {results.error}</>}
               </p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              {results.results.map((res, idx) => {
-                const uniqueId = `${res.paper_id}-${idx}`
-                return (
-                  <div
-                    key={uniqueId}
-                    className="glass-card"
-                    style={{ padding: '1.75rem' }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.85rem' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.35rem' }}>
-                          <span className="badge badge-purple" style={{ fontSize: '0.72rem' }}>
-                            {res.section || 'General Content'}
-                          </span>
-                          {res.year && (
-                            <span className="badge badge-blue" style={{ fontSize: '0.72rem' }}>
-                              {res.year}
-                            </span>
-                          )}
-                        </div>
-                        <h4
-                          style={{
-                            color: 'var(--text-primary)',
-                            fontSize: '1.05rem',
-                            cursor: 'pointer',
-                          }}
-                          onClick={() => navigate(`/papers/${res.paper_id}/summary`)}
-                        >
-                          {res.paper_title || `Paper #${res.paper_id}`}
-                        </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {results.results.map((r, i) => (
+                <div
+                  key={i}
+                  id={`search-result-${i}`}
+                  className="glass-card"
+                  style={{ padding: '1.5rem' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                        <span style={{
+                          width: 24, height: 24, borderRadius: '50%',
+                          background: 'var(--accent-glow)',
+                          border: '1px solid var(--accent-primary)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '0.7rem', fontWeight: 800, color: 'var(--accent-bright)',
+                        }}>{i + 1}</span>
+                        <h4 style={{ margin: 0, fontSize: '1rem' }}>{r.title || 'Unknown Paper'}</h4>
                       </div>
-
-                      <ScoreBadge score={res.similarity_score ?? res.score ?? 0.85} />
+                      <span className="badge badge-cyan" style={{ fontSize: '0.7rem' }}>
+                        Section: {r.section}
+                      </span>
                     </div>
-
-                    {/* Chunk text snippet */}
-                    <div
-                      style={{
-                        background: 'var(--bg-elevated)',
-                        border: '1px solid var(--border-subtle)',
-                        borderRadius: 'var(--radius-sm)',
-                        padding: '1rem 1.25rem',
-                        fontSize: '0.92rem',
-                        color: 'var(--text-secondary)',
-                        lineHeight: 1.7,
-                        marginBottom: '1rem',
-                        borderLeft: '3px solid var(--accent-primary)',
-                      }}
-                    >
-                      &ldquo;{res.chunk_text || res.text}&rdquo;
-                    </div>
-
-                    {/* Bottom actions */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        Paper ID: <span style={{ fontFamily: 'var(--font-mono)' }}>{res.paper_id}</span>
+                    <div style={{ flexShrink: 0, minWidth: 180 }}>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.4rem', textAlign: 'right' }}>
+                        Semantic Similarity
                       </div>
-
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => handleCopyExcerpt(res.chunk_text || res.text, uniqueId)}
-                        >
-                          {copiedId === uniqueId ? (
-                            <>
-                              <IconCheck size={14} color="var(--accent-green)" /> Copied
-                            </>
-                          ) : (
-                            <>
-                              <IconCopy size={14} /> Copy Excerpt
-                            </>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => navigate(`/papers/${res.paper_id}/summary`)}
-                        >
-                          View Paper Summary →
-                        </button>
-                      </div>
+                      <ScoreBar score={r.similarity_score} />
                     </div>
                   </div>
-                )
-              })}
+
+                  <div style={{
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '0.875rem 1rem',
+                    fontSize: '0.85rem',
+                    color: 'var(--text-secondary)',
+                    lineHeight: 1.7,
+                    marginBottom: '0.875rem',
+                    fontStyle: 'italic',
+                  }}>
+                    &ldquo;{r.chunk_text?.slice(0, 300)}{r.chunk_text?.length > 300 ? '…' : ''}&rdquo;
+                  </div>
+
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => navigate(`/papers/${r.paper_id}/summary`)}
+                  >
+                    View full paper →
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>
